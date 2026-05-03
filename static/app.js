@@ -9,7 +9,9 @@
  *   lobby → waiting (signaling WS open) → handshake (WebRTC) → battle → result
  */
 
-const { BattleState, processSpell } = window.GameLogic;
+// Avoid name clash with class BattleState declared in game.js (top-level
+// class/const share lexical scope across non-module scripts). Reference via window.
+const _GL = window.GameLogic;
 
 // ── App state ─────────────────────────────────────────────────────────────────
 const S = {
@@ -223,7 +225,7 @@ function startBattleIfReady() {
   // Host has its own info + remote info
   const me   = { id: S.playerId, name: S.playerName };
   const them = _hello.remoteRecv;
-  S.battle = new BattleState(me.id, me.name, them.id, them.name);
+  S.battle = new _GL.BattleState(me.id, me.name, them.id, them.name);
   showScreen('screen-battle');
   clearLog();
   addLog('⚔️ 对决开始！', 'log-system');
@@ -267,7 +269,7 @@ async function handlePeer(msg) {
         return;
       }
       try {
-        const { logs } = await processSpell(S.battle, msg.from, msg.text);
+        const { logs } = await _GL.processSpell(S.battle, msg.from, msg.text);
         broadcastState(logs);
         if (S.battle.finished) {
           sendPeer({ type: 'end', winner: S.battle.winnerName });
@@ -299,7 +301,7 @@ async function handlePeer(msg) {
         // Reset battle
         const me   = { id: S.playerId, name: S.playerName };
         const them = _hello.remoteRecv;
-        S.battle = new BattleState(me.id, me.name, them.id, them.name);
+        S.battle = new _GL.BattleState(me.id, me.name, them.id, them.name);
         clearLog();
         showScreen('screen-battle');
         addLog('🔄 再来一局！', 'log-system');
@@ -520,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (S.isHost) {
       // Process locally
-      const { logs } = await processSpell(S.battle, S.playerId, text);
+      const { logs } = await _GL.processSpell(S.battle, S.playerId, text);
       broadcastState(logs);
       if (S.battle.finished) {
         sendPeer({ type: 'end', winner: S.battle.winnerName });
@@ -553,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (S.isHost) {
       const me   = { id: S.playerId, name: S.playerName };
       const them = _hello.remoteRecv;
-      S.battle = new BattleState(me.id, me.name, them.id, them.name);
+      S.battle = new _GL.BattleState(me.id, me.name, them.id, them.name);
       clearLog();
       showScreen('screen-battle');
       addLog('🔄 再来一局！', 'log-system');

@@ -21,6 +21,18 @@ from judge import judge_spell
 
 app = FastAPI(title="小二对决")
 
+
+# Disable caching for static + html so updates take effect immediately
+@app.middleware("http")
+async def no_cache_middleware(request, call_next):
+    resp = await call_next(request)
+    if request.url.path.startswith("/static") or request.url.path == "/":
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+    return resp
+
+
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
