@@ -9,18 +9,27 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: SSH and deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host:     ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key:      ${{ secrets.SSH_PRIVATE_KEY }}
-          port:     22
-          script: |
-            set -e
-            cd /opt/xiaoer
-            git fetch --all
-            git reset --hard origin/main
-            docker compose -f docker-compose.prod.yml --env-file .env up -d --build
-            docker image prune -f
-            echo "✅ Deployed at $(date '+%F %T')"
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rsync project to server (server cannot reach GitHub from China)
+        run: |
+          rsync -avz --delete \
+            --exclude=.venv --exclude=.git --exclude=__pycache__ \
+            --exclude=.DS_Store --exclude=.env \
+            --exclude=.github --exclude=README.md \
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/xiaoer/app/
+
+      - name: Rebuild and restart
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd /home/xiaoer/app && \
+             docker compose -f docker-compose.prod.yml --env-file .env up -d --build && \
+             docker image prune -f && \
+             echo 'Deployed at \$(date)'"
