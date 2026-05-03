@@ -1,7 +1,18 @@
-# Replace `your-domain.com` with your actual domain.
-# Caddy will auto-fetch a Let's Encrypt cert.
+# Sub-path deployment: serve app under /xiaoer-duel/
+# Caddy auto-fetches a Let's Encrypt cert for the domain.
 # WebSocket upgrade is handled automatically by reverse_proxy.
 
-your-domain.com {
-    reverse_proxy xiaoer:8765
+{$DOMAIN} {
+    # Redirect bare prefix → trailing slash so relative paths in HTML resolve correctly
+    redir /xiaoer-duel /xiaoer-duel/ permanent
+
+    # Strip /xiaoer-duel prefix and forward everything else to the app
+    handle_path /xiaoer-duel/* {
+        reverse_proxy xiaoer:8765
+    }
+
+    # Default response at root (compliance: no app at "/")
+    handle / {
+        respond "" 204
+    }
 }

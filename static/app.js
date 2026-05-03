@@ -35,7 +35,12 @@ function setThinking(on) {
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 function connect(roomId, playerId) {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const url = `${proto}://${location.host}/ws/${roomId}/${playerId}`;
+  // Derive path prefix from current page (supports sub-path deployment like /xiaoer-duel/)
+  const path = location.pathname;
+  const prefix = path.endsWith('/')
+    ? path.slice(0, -1)
+    : path.substring(0, path.lastIndexOf('/'));
+  const url = `${proto}://${location.host}${prefix}/ws/${roomId}/${playerId}`;
   const ws = new WebSocket(url);
   S.ws = ws;
 

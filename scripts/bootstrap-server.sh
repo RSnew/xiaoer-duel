@@ -36,20 +36,13 @@ chown "$APP_USER:$APP_USER" "$APP_DIR"
 sudo -u "$APP_USER" git clone "https://github.com/${REPO}.git" "$APP_DIR" 2>/dev/null \
   || (cd "$APP_DIR" && sudo -u "$APP_USER" git pull)
 
-echo "==> Write .env and Caddyfile"
+echo "==> Write .env (Caddyfile is shipped in the repo and reads \$DOMAIN)"
 cat > "$APP_DIR/.env" <<EOF
 ZHIPUAI_API_KEY=$ZHIPUAI_KEY
 DOMAIN=$DOMAIN
 EOF
 chown "$APP_USER:$APP_USER" "$APP_DIR/.env"
 chmod 600 "$APP_DIR/.env"
-
-cat > "$APP_DIR/Caddyfile" <<EOF
-$DOMAIN {
-    reverse_proxy xiaoer:8765
-}
-EOF
-chown "$APP_USER:$APP_USER" "$APP_DIR/Caddyfile"
 
 echo "==> Generate deploy SSH key for github actions"
 KEY_FILE=/home/$APP_USER/.ssh/deploy_ed25519
@@ -68,7 +61,7 @@ sudo -u "$APP_USER" docker compose -f docker-compose.prod.yml --env-file .env up
 
 echo
 echo "════════════════════════════════════════════════════════════════"
-echo "✅ Done. Site should be live at: https://$DOMAIN"
+echo "✅ Done. Site should be live at: https://$DOMAIN/xiaoer-duel/"
 echo
 echo "GITHUB ACTIONS NEEDS THESE SECRETS (Settings → Secrets → Actions):"
 echo "  SSH_HOST = $(curl -s ifconfig.me 2>/dev/null || echo '<your-server-ip>')"
