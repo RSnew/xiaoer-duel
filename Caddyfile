@@ -1,0 +1,7 @@
+# Replace `your-domain.com` with your actual domain.
+# Caddy will auto-fetch a Let's Encrypt cert.
+# WebSocket upgrade is handled automatically by reverse_proxy.
+
+your-domain.com {
+    reverse_proxy xiaoer:8765
+}

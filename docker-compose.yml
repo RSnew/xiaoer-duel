@@ -1,0 +1,30 @@
+services:
+  xiaoer:
+    build: .
+    container_name: xiaoer-duel
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    environment:
+      - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY}
+      - PORT=8765
+
+  # Optional: Caddy reverse proxy with auto HTTPS
+  # Uncomment + set DOMAIN env var if you have a domain pointing to this server.
+  # caddy:
+  #   image: caddy:2-alpine
+  #   container_name: xiaoer-caddy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  #   depends_on:
+  #     - xiaoer
+
+# volumes:
+#   caddy_data:
+#   caddy_config:

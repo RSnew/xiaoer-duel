@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>小二对决</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- ══ LOBBY ══════════════════════════════════════════════════════════════ -->
+<div id="screen-lobby" class="screen active">
+  <div class="lobby-wrap">
+    <div class="logo">
+      <div class="logo-icon">⚔️</div>
+      <h1 class="logo-title">小二对决</h1>
+      <p class="logo-sub">施展咒语，以魔法决一胜负</p>
+    </div>
+
+    <div class="card">
+      <label class="field-label">你的名字</label>
+      <input id="input-name" class="text-input" type="text" placeholder="输入你的名字" maxlength="16" autocomplete="off">
+    </div>
+
+    <div class="card">
+      <button id="btn-create" class="btn btn-primary btn-full">✨ 创建房间</button>
+    </div>
+
+    <div class="divider"><span>或</span></div>
+
+    <div class="card">
+      <label class="field-label">加入房间</label>
+      <div class="row-group">
+        <input id="input-room" class="text-input" type="text" placeholder="输入房间码" maxlength="5"
+               autocomplete="off" autocapitalize="characters" style="text-transform:uppercase">
+        <button id="btn-join" class="btn btn-secondary">加入</button>
+      </div>
+    </div>
+
+    <p id="lobby-error" class="error-text" style="display:none"></p>
+  </div>
+</div>
+
+
+<!-- ══ WAITING ROOM ════════════════════════════════════════════════════════ -->
+<div id="screen-waiting" class="screen">
+  <div class="waiting-wrap">
+    <h2 class="waiting-title">等待对手加入…</h2>
+    <div class="room-code-box">
+      <span class="room-code-label">房间码</span>
+      <div class="room-code" id="display-room-id">—</div>
+      <button class="btn btn-ghost btn-sm" id="btn-copy">复制</button>
+    </div>
+    <div class="players-list" id="waiting-players"></div>
+    <div class="spinner"></div>
+  </div>
+</div>
+
+
+<!-- ══ BATTLE ══════════════════════════════════════════════════════════════ -->
+<div id="screen-battle" class="screen">
+
+  <!-- Opponent -->
+  <div class="combatant combatant-opponent" id="opp-panel">
+    <div class="combatant-header">
+      <span class="combatant-name" id="opp-name">对手</span>
+      <span class="turn-badge" id="opp-turn-badge">行动中</span>
+    </div>
+    <div class="hp-row">
+      <div class="hp-bar-wrap">
+        <div class="hp-bar" id="opp-hp-bar" style="width:100%"></div>
+      </div>
+      <span class="hp-text" id="opp-hp-text">86/86</span>
+    </div>
+    <div class="shield-row" id="opp-shield-row">
+      <span class="shield-icon">🛡️</span>
+      <span id="opp-shield-text">27</span>
+    </div>
+    <div class="effects-row" id="opp-effects"></div>
+  </div>
+
+  <!-- Battle Log -->
+  <div class="battle-log-wrap">
+    <div class="battle-log" id="battle-log"></div>
+  </div>
+
+  <!-- Self -->
+  <div class="combatant combatant-self" id="self-panel">
+    <div class="effects-row" id="self-effects"></div>
+    <div class="shield-row" id="self-shield-row">
+      <span class="shield-icon">🛡️</span>
+      <span id="self-shield-text">27</span>
+    </div>
+    <div class="hp-row">
+      <div class="hp-bar-wrap">
+        <div class="hp-bar hp-bar-self" id="self-hp-bar" style="width:100%"></div>
+      </div>
+      <span class="hp-text" id="self-hp-text">86/86</span>
+    </div>
+    <div class="combatant-header">
+      <span class="combatant-name" id="self-name">你</span>
+      <span class="turn-badge turn-badge-self" id="self-turn-badge" style="display:none">你的回合</span>
+    </div>
+  </div>
+
+  <!-- Spell Input -->
+  <div class="spell-area" id="spell-area">
+    <div class="spell-hint" id="spell-hint">等待对手出招…</div>
+    <div class="spell-input-row" id="spell-input-row" style="display:none">
+      <textarea id="input-spell" class="spell-input" placeholder="念出你的咒语…"
+                rows="2" maxlength="200"></textarea>
+      <button id="btn-spell" class="btn btn-cast">出招</button>
+    </div>
+    <button id="btn-surrender" class="btn btn-ghost btn-sm" style="margin-top:8px">认输</button>
+  </div>
+
+  <div class="thinking-overlay" id="thinking-overlay" style="display:none">
+    <div class="thinking-box">
+      <div class="spinner"></div>
+      <span>裁判判定中…</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ RESULT ══════════════════════════════════════════════════════════════ -->
+<div id="screen-result" class="screen">
+  <div class="result-wrap">
+    <div class="result-icon" id="result-icon">🏆</div>
+    <h2 class="result-title" id="result-title">胜利！</h2>
+    <p class="result-sub" id="result-sub"></p>
+    <button id="btn-rematch" class="btn btn-primary btn-full" style="margin-top:32px">🔄 再来一局</button>
+    <button id="btn-leave" class="btn btn-ghost btn-full" style="margin-top:12px">返回大厅</button>
+  </div>
+</div>
+
+
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+services:
+  xiaoer:
+    build: .
+    container_name: xiaoer-duel
+    restart: unless-stopped
+    expose:
+      - "8765"
+    environment:
+      - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY}
+      - PORT=8765
+    networks:
+      - web
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: xiaoer-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - xiaoer
+    networks:
+      - web
+
+networks:
+  web:
+
+volumes:
+  caddy_data:
+  caddy_config:
