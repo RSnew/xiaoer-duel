@@ -199,6 +199,7 @@ class BattleState:
         self.field_effects = [e for e in self.field_effects if e["turns_left"] > 0]
 
         self.current_turn = self.p2["id"] if self.current_turn == self.p1["id"] else self.p1["id"]
+        self.check_winner()
 
         return {"dots": dot_events}
 

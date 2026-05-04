@@ -157,6 +157,7 @@ class BattleState {
     this.fieldEffects = this.fieldEffects.filter(e => e.turns_left > 0);
 
     this.currentTurn = this.currentTurn === this.p1.id ? this.p2.id : this.p1.id;
+    this.checkWinner();
     return { dots: dotEvents };
   }
 
