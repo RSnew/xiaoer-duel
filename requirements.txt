@@ -2,5 +2,6 @@ fastapi>=0.100
 uvicorn[standard]>=0.23
 websockets>=12
 zhipuai>=2.1
+httpx>=0.25
 sniffio
 python-dotenv
