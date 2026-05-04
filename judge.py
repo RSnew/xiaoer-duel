@@ -150,16 +150,28 @@ async def _judge_zhipu(messages: list) -> dict | None:
 # ── Public ────────────────────────────────────────────────────────────────────
 
 async def judge_spell(spell: str, field_effects: list) -> dict:
-    """Judge a spell. Returns {power, type, description, is_foul, field_kind?}."""
+    """Judge a spell. Returns {power, type, description, is_foul, field_kind?}.
+
+    Behavior:
+      - LLM_BACKEND=llama  → try llama first; on failure fall back to zhipu (if key set)
+      - LLM_BACKEND=zhipu  → only zhipu
+    """
     messages = _build_messages(spell, field_effects)
 
     if BACKEND == "llama":
         result = await _judge_llama(messages)
+        if result:
+            return result
+        # Fallback to zhipu when llama is unreachable (Mac offline, tunnel down, etc.)
+        if os.environ.get("ZHIPUAI_API_KEY"):
+            print("[judge] llama failed, falling back to zhipu")
+            result = await _judge_zhipu(messages)
+            if result:
+                return result
     else:
         result = await _judge_zhipu(messages)
+        if result:
+            return result
 
-    if result:
-        return result
-
-    # Fallback default
+    # Last resort: a neutral default so the game keeps moving
     return {"power": 15, "type": "attack", "description": "普通攻击", "is_foul": False}

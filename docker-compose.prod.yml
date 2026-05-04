@@ -8,6 +8,11 @@ services:
     environment:
       - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY}
       - PORT=8765
+      - LLM_BACKEND=${LLM_BACKEND:-zhipuai}
+      - LLAMA_BASE_URL=${LLAMA_BASE_URL:-}
+    extra_hosts:
+      # Container reaches host's ports via this DNS name (where SSH tunnel lands)
+      - "host.docker.internal:host-gateway"
     networks:
       - web
 
