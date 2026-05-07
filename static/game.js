@@ -5,6 +5,27 @@ const BASE_STATS = {
   '体力': 100, '灵智': 30, '想象': 30,
   '灵魂': 30, '创造': 30, '灵活': 50,
 };
+const STAT_NAMES = ['体力', '灵智', '想象', '灵魂', '创造', '灵活'];
+const MAX_PER_STAT = 100;
+const MAX_TOTAL_ADDED = 250;
+
+// Stat presets matching common builds
+const PRESETS = {
+  balanced: { '体力': 50, '灵智': 50, '想象': 50, '灵魂': 30, '创造': 30, '灵活': 40 },
+  warrior:  { '体力': 100, '灵智': 30, '想象': 0, '灵魂': 70, '创造': 50, '灵活': 0 },
+  mage:     { '体力': 30, '灵智': 100, '想象': 80, '灵魂': 10, '创造': 30, '灵活': 0 },
+  assassin: { '体力': 30, '灵智': 30, '想象': 50, '灵魂': 0, '创造': 40, '灵活': 100 },
+  reset:    { '体力': 0, '灵智': 0, '想象': 0, '灵魂': 0, '创造': 0, '灵活': 0 },
+};
+
+// Apply added points on top of base stats
+function applyAdded(added) {
+  const result = {};
+  for (const k of STAT_NAMES) {
+    result[k] = BASE_STATS[k] + (added[k] || 0);
+  }
+  return result;
+}
 
 function calcCombatStats(s) {
   return {
@@ -20,12 +41,18 @@ function calcCombatStats(s) {
 }
 
 class BattleState {
-  constructor(p1Id, p1Name, p2Id, p2Name) {
-    this.p1 = { id: p1Id, name: p1Name };
-    this.p2 = { id: p2Id, name: p2Name };
+  /**
+   * @param {string} p1Id @param {string} p1Name
+   * @param {string} p2Id @param {string} p2Name
+   * @param {object} [p1Added] points added per stat for p1 (e.g. { 体力: 50, 灵智: 30 })
+   * @param {object} [p2Added] points added per stat for p2
+   */
+  constructor(p1Id, p1Name, p2Id, p2Name, p1Added = {}, p2Added = {}) {
+    this.p1 = { id: p1Id, name: p1Name, added: p1Added };
+    this.p2 = { id: p2Id, name: p2Name, added: p2Added };
 
-    const s1 = calcCombatStats(BASE_STATS);
-    const s2 = calcCombatStats(BASE_STATS);
+    const s1 = calcCombatStats(applyAdded(p1Added));
+    const s2 = calcCombatStats(applyAdded(p2Added));
 
     this.p1Hp = s1.hp;  this.p1MaxHp = s1.hp;
     this.p1Shield = s1.shield;
@@ -323,4 +350,8 @@ async function processSpell(battle, casterId, spellText) {
 }
 
 // Expose for app.js
-window.GameLogic = { BattleState, processSpell };
+window.GameLogic = {
+  BattleState, processSpell,
+  BASE_STATS, STAT_NAMES, MAX_PER_STAT, MAX_TOTAL_ADDED,
+  PRESETS, applyAdded, calcCombatStats,
+};

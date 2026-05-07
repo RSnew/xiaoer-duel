@@ -24,6 +24,11 @@ const S = {
   roomId: null,
   playerId: null,
   playerName: null,
+  // Character setup
+  added: {},          // local player's stat allocation (resets to 0/empty)
+  charReady: false,   // local player clicked "准备就绪"
+  peerHello: null,    // peer's {id, name, added} from hello message
+  // Battle
   battle: null,       // BattleState (host only)
   gameState: null,    // last rendered state (both)
   isMyTurn: false,
@@ -105,7 +110,7 @@ async function handleSignal(msg) {
       break;
 
     case 'ready':
-      // Both peers now in room — joiner initiates WebRTC offer
+      // Both peers now in room — start WebRTC handshake AND switch to character setup
       addPlayerChip('peer', '对手已加入');
       await setupPeerConnection();
       if (!S.isHost) {
@@ -116,6 +121,8 @@ async function handleSignal(msg) {
         await S.pc.setLocalDescription(offer);
         sendSignal({ type: 'offer', sdp: offer });
       }
+      // Both peers transition to character setup screen
+      enterCharacterSetup();
       break;
 
     case 'offer':
@@ -186,18 +193,9 @@ async function setupPeerConnection() {
 function wireDataChannel(dc) {
   dc.onopen = () => {
     console.log('DataChannel open');
-    // Close signaling — no longer needed
-    if (S.signalWs) { try { S.signalWs.close(); } catch (_) {} }
-
-    if (S.isHost) {
-      // Host kicks off the battle
-      const peerName = '对手';   // placeholder — we'll exchange names via dc
-      // Actually, exchange names first
-      dc.send(JSON.stringify({ type: 'hello', name: S.playerName, id: S.playerId }));
-    } else {
-      // Joiner sends hello
-      dc.send(JSON.stringify({ type: 'hello', name: S.playerName, id: S.playerId }));
-    }
+    // Don't close signaling yet — keep alive in case of reconnects (server cleans up).
+    // Send hello if local already char-ready; otherwise trySendHello() will fire later.
+    trySendHello();
   };
 
   dc.onmessage = e => {
@@ -210,6 +208,22 @@ function wireDataChannel(dc) {
   dc.onerror  = err => console.warn('dc error', err);
 }
 
+// Send hello (with player info + stat allocation) once both DC is open AND local is char-ready
+function trySendHello() {
+  if (!S.dc || S.dc.readyState !== 'open') return;
+  if (!S.charReady) return;
+  if (S.helloSent) return;
+  S.helloSent = true;
+  S.dc.send(JSON.stringify({
+    type: 'hello',
+    id: S.playerId,
+    name: S.playerName,
+    added: S.added,
+  }));
+  // Now check if we can start the battle
+  startBattleIfReady();
+}
+
 function sendPeer(obj) {
   if (S.dc && S.dc.readyState === 'open') {
     S.dc.send(JSON.stringify(obj));
@@ -217,15 +231,14 @@ function sendPeer(obj) {
 }
 
 // ── Peer protocol ─────────────────────────────────────────────────────────────
-const _hello = { localSent: false, remoteRecv: null };
 
 function startBattleIfReady() {
-  if (!_hello.remoteRecv) return;
-  if (!S.isHost) return;   // only host starts
-  // Host has its own info + remote info
+  if (!S.peerHello) return;       // need peer's stats too
+  if (!S.charReady)  return;       // I must have submitted my stats
+  if (!S.isHost)     return;       // only host kicks off
   const me   = { id: S.playerId, name: S.playerName };
-  const them = _hello.remoteRecv;
-  S.battle = new _GL.BattleState(me.id, me.name, them.id, them.name);
+  const them = S.peerHello;
+  S.battle = new _GL.BattleState(me.id, me.name, them.id, them.name, S.added, them.added || {});
   showScreen('screen-battle');
   clearLog();
   addLog('⚔️ 对决开始！', 'log-system');
@@ -247,16 +260,27 @@ function broadcastState(extraLogs = []) {
 async function handlePeer(msg) {
   switch (msg.type) {
     case 'hello':
-      _hello.remoteRecv = { id: msg.id, name: msg.name };
-      // Render lobby chip update
+      S.peerHello = { id: msg.id, name: msg.name, added: msg.added || {} };
+      // Update char-status to show peer ready
+      const status = $('char-status');
+      if (status && document.getElementById('screen-character').classList.contains('active')) {
+        status.textContent = `✓ ${msg.name} 已就绪`;
+        status.className = 'char-status ready';
+      }
+      // Update waiting-room chip name
       const oppChip = $('chip-peer');
       if (oppChip) oppChip.querySelector('span:last-child').textContent = msg.name;
       startBattleIfReady();
-      // Joiner: switch to battle screen on first state
-      if (!S.isHost) showScreen('screen-battle');
+      // Joiner: switch to battle screen on first state from host
+      // (handled by 'state' message instead)
       break;
 
     case 'state':
+      // Joiner first time receiving state → enter battle screen
+      if (!document.getElementById('screen-battle').classList.contains('active')) {
+        showScreen('screen-battle');
+        clearLog();
+      }
       renderState(msg.state, msg.logs || []);
       break;
 
@@ -315,6 +339,164 @@ async function handlePeer(msg) {
       addLog(`⚠️ ${msg.message}`, 'log-foul');
       break;
   }
+}
+
+// ── Character setup ───────────────────────────────────────────────────────────
+
+function enterCharacterSetup() {
+  // Reset local allocation (idempotent)
+  S.added = {};
+  for (const k of _GL.STAT_NAMES) S.added[k] = 0;
+  S.charReady = false;
+  S.helloSent = false;
+
+  // Reset UI state
+  $('btn-char-ready').disabled = false;
+  $('btn-char-ready').textContent = '✓ 准备就绪';
+  $('char-status').textContent = '';
+  $('char-status').className = 'char-status';
+  document.querySelectorAll('.preset-btn.active').forEach(b => b.classList.remove('active'));
+
+  buildCharStatList();
+  updateCharUI();
+  showScreen('screen-character');
+}
+
+function buildCharStatList() {
+  const list = $('char-stats');
+  list.innerHTML = '';
+  for (const name of _GL.STAT_NAMES) {
+    const row = document.createElement('div');
+    row.className = 'stat-row';
+    row.innerHTML = `
+      <span class="stat-name">${name}</span>
+      <span class="stat-base">+${_GL.BASE_STATS[name]}</span>
+      <div class="stat-controls">
+        <button class="stat-btn minus" data-stat="${name}" data-delta="-1" aria-label="减少">−</button>
+        <div class="stat-bar-wrap" data-stat="${name}">
+          <div class="stat-bar-fill" id="bar-${name}"></div>
+        </div>
+        <button class="stat-btn plus" data-stat="${name}" data-delta="1" aria-label="增加">+</button>
+      </div>
+      <span class="stat-added zero" id="added-${name}">0</span>
+      <span class="stat-final" id="final-${name}">${_GL.BASE_STATS[name]}</span>
+    `;
+    list.appendChild(row);
+  }
+  // Wire click handlers (delegated)
+  list.querySelectorAll('.stat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.stat;
+      const delta = +btn.dataset.delta;
+      adjustStat(name, delta);
+    });
+    // Long-press for +10
+    let timer;
+    btn.addEventListener('pointerdown', () => {
+      timer = setTimeout(() => {
+        adjustStat(btn.dataset.stat, +btn.dataset.delta * 10);
+      }, 500);
+    });
+    btn.addEventListener('pointerup',     () => clearTimeout(timer));
+    btn.addEventListener('pointerleave',  () => clearTimeout(timer));
+    btn.addEventListener('pointercancel', () => clearTimeout(timer));
+  });
+}
+
+function adjustStat(name, delta) {
+  const cur = S.added[name] || 0;
+  const next = Math.max(0, Math.min(_GL.MAX_PER_STAT, cur + delta));
+  if (next === cur) return;
+
+  // Check total cap
+  const totalAfter = totalAdded() - cur + next;
+  if (totalAfter > _GL.MAX_TOTAL_ADDED) {
+    // Allow only the headroom
+    const room = _GL.MAX_TOTAL_ADDED - (totalAdded() - cur);
+    S.added[name] = Math.max(0, Math.min(_GL.MAX_PER_STAT, room));
+  } else {
+    S.added[name] = next;
+  }
+  updateCharUI();
+  // Clear active preset when manually editing
+  document.querySelectorAll('.preset-btn.active').forEach(b => b.classList.remove('active'));
+}
+
+function totalAdded() {
+  let sum = 0;
+  for (const k of _GL.STAT_NAMES) sum += (S.added[k] || 0);
+  return sum;
+}
+
+function updateCharUI() {
+  const used = totalAdded();
+  $('char-used').textContent = used;
+  $('char-points-fill').style.width = (used / _GL.MAX_TOTAL_ADDED * 100) + '%';
+
+  // Per-stat rows
+  for (const name of _GL.STAT_NAMES) {
+    const v = S.added[name] || 0;
+    const final = _GL.BASE_STATS[name] + v;
+    const addedEl = $(`added-${name}`);
+    addedEl.textContent = v > 0 ? `+${v}` : '0';
+    addedEl.className = 'stat-added' + (v > 0 ? '' : ' zero');
+    $(`final-${name}`).textContent = final;
+    $(`bar-${name}`).style.width = (v / _GL.MAX_PER_STAT * 100) + '%';
+
+    // Disable + buttons when at cap
+    const plusBtn = document.querySelector(`.stat-btn.plus[data-stat="${name}"]`);
+    const minusBtn = document.querySelector(`.stat-btn.minus[data-stat="${name}"]`);
+    if (plusBtn)  plusBtn.disabled  = v >= _GL.MAX_PER_STAT || used >= _GL.MAX_TOTAL_ADDED;
+    if (minusBtn) minusBtn.disabled = v <= 0;
+  }
+
+  // Derived combat stats
+  const combat = _GL.calcCombatStats(_GL.applyAdded(S.added));
+  const baseCombat = _GL.calcCombatStats(_GL.BASE_STATS);
+  const grid = $('derived-grid');
+  const items = [
+    ['HP', combat.hp, baseCombat.hp],
+    ['护盾', combat.shield, baseCombat.shield],
+    ['速度', combat.speed, baseCombat.speed],
+    ['闪避', combat.dodge, baseCombat.dodge],
+    ['法攻', combat.matk, baseCombat.matk],
+    ['想攻', combat.satk, baseCombat.satk],
+  ];
+  grid.innerHTML = items.map(([label, val, base]) => `
+    <div class="derived-item">
+      <span class="derived-label">${label}</span>
+      <span class="derived-value${val > base ? ' boosted' : ''}">${Math.round(val)}</span>
+    </div>
+  `).join('');
+}
+
+function applyPreset(name) {
+  const preset = _GL.PRESETS[name];
+  if (!preset) return;
+  S.added = { ...preset };
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === name);
+  });
+  updateCharUI();
+}
+
+function submitCharacter() {
+  if (totalAdded() > _GL.MAX_TOTAL_ADDED) return;
+  S.charReady = true;
+  $('btn-char-ready').disabled = true;
+  $('btn-char-ready').textContent = '✓ 已就绪 — 等待对手…';
+  // Disable inputs to make it clear
+  document.querySelectorAll('.stat-btn, .preset-btn').forEach(b => b.disabled = true);
+
+  if (S.peerHello) {
+    $('char-status').textContent = '双方就绪，开始对决…';
+    $('char-status').className = 'char-status ready';
+  } else {
+    $('char-status').textContent = '等待对手就绪…';
+    $('char-status').className = 'char-status';
+  }
+
+  trySendHello();
 }
 
 // ── Render / UI ───────────────────────────────────────────────────────────────
@@ -554,8 +736,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-rematch').addEventListener('click', () => {
     if (S.isHost) {
       const me   = { id: S.playerId, name: S.playerName };
-      const them = _hello.remoteRecv;
-      S.battle = new _GL.BattleState(me.id, me.name, them.id, them.name);
+      const them = S.peerHello;
+      S.battle = new _GL.BattleState(me.id, me.name, them.id, them.name, S.added, them.added || {});
       clearLog();
       showScreen('screen-battle');
       addLog('🔄 再来一局！', 'log-system');
@@ -575,8 +757,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (S.signalWs) try { S.signalWs.close(); } catch (_) {}
     S.dc = null; S.pc = null; S.signalWs = null;
     S.battle = null; S.gameState = null; S.isMyTurn = false;
-    _hello.remoteRecv = null; _hello.localSent = false;
+    S.peerHello = null; S.charReady = false; S.helloSent = false;
+    S.added = {};
     showScreen('screen-lobby');
+  });
+
+  // ── Character setup buttons ─────────────────────────────────────────────────
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+  });
+
+  $('btn-char-ready').addEventListener('click', submitCharacter);
+
+  $('btn-char-back').addEventListener('click', () => {
+    if (!confirm('返回大厅会断开当前房间，确认？')) return;
+    $('btn-leave').click();   // reuse cleanup logic
   });
 
   // Auto-grow spell textarea

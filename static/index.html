@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>小二对决</title>
-  <link rel="stylesheet" href="static/style.css?v=2">
+  <link rel="stylesheet" href="static/style.css?v=3">
 </head>
 <body>
 
@@ -38,6 +38,49 @@
     </div>
 
     <p id="lobby-error" class="error-text" style="display:none"></p>
+  </div>
+</div>
+
+
+<!-- ══ CHARACTER SETUP ═════════════════════════════════════════════════════ -->
+<div id="screen-character" class="screen">
+  <div class="char-wrap">
+    <div class="char-header">
+      <h2 class="char-title">配置你的精灵</h2>
+      <p class="char-sub">分配 250 点属性（每项最多 +100）</p>
+    </div>
+
+    <div class="char-presets">
+      <button class="preset-btn" data-preset="balanced">⚖️ 平衡</button>
+      <button class="preset-btn" data-preset="warrior">🛡️ 战士</button>
+      <button class="preset-btn" data-preset="mage">🔮 法师</button>
+      <button class="preset-btn" data-preset="assassin">⚡ 刺客</button>
+      <button class="preset-btn" data-preset="reset">↺ 清空</button>
+    </div>
+
+    <div class="char-points">
+      已分配 <span id="char-used">0</span> / <span id="char-max">250</span> 点
+      <div class="char-points-bar"><div id="char-points-fill"></div></div>
+    </div>
+
+    <div class="char-stats" id="char-stats">
+      <!-- Filled by JS -->
+    </div>
+
+    <div class="char-derived card">
+      <h3 class="char-derived-title">战斗属性预览</h3>
+      <div class="derived-grid" id="derived-grid">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+
+    <div class="char-actions">
+      <button id="btn-char-back" class="btn btn-ghost">返回</button>
+      <button id="btn-char-ready" class="btn btn-primary btn-full">✓ 准备就绪</button>
+    </div>
+
+    <p id="char-error" class="error-text" style="display:none"></p>
+    <p id="char-status" class="char-status"></p>
   </div>
 </div>
 
@@ -135,7 +178,7 @@
 </div>
 
 
-<script src="static/game.js?v=2"></script>
-<script src="static/app.js?v=2"></script>
+<script src="static/game.js?v=3"></script>
+<script src="static/app.js?v=3"></script>
 </body>
 </html>
